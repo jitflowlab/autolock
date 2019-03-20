@@ -18,6 +18,8 @@ async function getConf () {
         path.join(cwd, '/server/nginx/default.conf'), 'utf-8'
     );
     conf = conf.replace(/{{MANAGER_SERVER}}/g, app.env('MANAGER_SERVER'));
+    conf = conf.replace(/{{UPSTREAM_HOST}}/g, app.env('UPSTREAM_HOST'));
+    conf = conf.replace(/{{UPSTREAM_PORT}}/g, app.env('UPSTREAM_PORT'));
 
     return conf;
 }
