@@ -1,4 +1,4 @@
-const {runJob} = require('./job');
+const job = require('./job');
 const {handleError, handleCatch} = require('./app');
 const nginx = require('./nginx');
 const auth = require('./auth');
@@ -13,7 +13,7 @@ async function main (cmd) {
         case 'job':
             const id = process.argv[3] || '';
             if (id) {
-                await runJob(id).catch(handleCatch);
+                await job.run(id).catch(handleCatch);
             }
             break;
         case 'renew':

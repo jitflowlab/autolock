@@ -77,9 +77,8 @@ exports.checkRenewal = async function () {
 exports.certbot = async function ({email, domain, force = false}) {
     const checkDomains = domain.split(',').map(i => i.trim());
     const activeCerts = await this.getCerts();
-    app.log('activeCerts', activeCerts);
     if (activeCerts[checkDomains[0]] !== undefined && force === false) {
-        throw new Error('DOMAIN_ALREADY_EXISTS');
+        app.error('DOMAIN_ALREADY_EXISTS');
     }
     let domains = '';
     let success = [];
@@ -97,7 +96,7 @@ exports.certbot = async function ({email, domain, force = false}) {
     }
 
     if (fail.length) {
-        throw new Error('DOMAIN_DNS_FAILED');
+        app.error('DOMAIN_DNS_FAILED');
     }
 
     // console.log(domains);
@@ -112,7 +111,10 @@ exports.certbot = async function ({email, domain, force = false}) {
     const response = await app.execute(cmd);
     app.log('certbot response:', response);
     if (response.indexOf('The following errors were reported by the server') !== -1) {
-        throw new Error('DOMAIN_DNS_FAILED');
+        app.error('DOMAIN_DNS_FAILED');
+    }
+    if (response.indexOf('An unexpected error occurred') !== -1) {
+        app.error('LETSENCRYPT_ERROR', response);
     }
     const parentCert = success[0];
     const baseDir = path.join(`/etc/letsencrypt/live/${parentCert}`);

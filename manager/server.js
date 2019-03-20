@@ -1,12 +1,14 @@
 const express = require('express');
 const http = require('http');
+const fetch = require('node-fetch');
 const bodyParser = require('body-parser');
 const {createJob} = require('../core/job');
 const util = require('../core/app');
-const {getCert} = require('../core/letsencrypt');
+const letsencrypt = require('../core/letsencrypt');
 const auth = require('../core/auth');
 const fs = require('fs');
 const path = require('path');
+const job = require('../core/job');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -16,11 +18,12 @@ async function api (req, res, next) {
     if (!token) {
         return res.locals.error('Missing auth token', 401);
     }
+    util.log('token', token);
     const check = await auth.verify(token).catch(e => {
         res.locals.error(e.message, 401);
         return false;
     });
-    if (check) {
+    if (check === true) {
         return next();
     }
 }
@@ -28,10 +31,23 @@ async function api (req, res, next) {
 async function main () {
     app.use(function (req, res, next) {
         res.locals.error = function (message, type = 400) {
-            return res.send(type, {
+            res.status(type);
+            return res.send({
                 error: true,
                 message: message
             });
+        };
+
+        res.locals.error = function (message) {
+            res.send(message);
+        };
+
+        res.locals.notFound = function () {
+            this.error('Object not found', 400);
+        };
+
+        res.locals.success = function (data) {
+            res.send(data);
         };
         return next();
     });
@@ -59,23 +75,46 @@ async function main () {
         util.log(' -> 404');
         res.status(404).send('');
     });
-    app.get('/api/*', api);
+
+    app.all('/api/*', api);
+
+    app.get('/api/jobs/:id', async function (req, res) {
+        res.locals.success(await job.get(req.params.id));
+    });
+
+    app.post('/api/jobs/:id/webhooks', async function (req, res) {
+        await job.sendWebhook(req.params.id);
+        res.locals.success(true);
+    });
 
     app.get('/api/certs/:domain', async function (req, res) {
-        res.send(await getCert(req.params.domain));
+        const cert = await letsencrypt.getCert(req.params.domain);
+        if (!cert) {
+            return res.locals.notFound();
+        }
+        res.locals.success(cert);
     });
 
     app.post('/api/certs', async function (req, res) {
         const body = req.body;
-        const job = await createJob({
-            email: body.email,
-            domain: body.domain,
+        const email = body.email || '';
+        const domain = body.domain || '';
+        if (!email.length) {
+            return res.locals.error('Missing email.');
+        }
+        if (!domain.length) {
+            return res.locals.error('Missing domain.');
+        }
+        const activeJob = await job.create({
+            email: email,
+            domain: domain,
+            notify: body.notify || null,
             force: body.force || false
         });
 
-        util.execute('node /app/console job ' + job);
+        util.execute('node /app/console job ' + activeJob);
         res.send({
-            processing: job
+            processing: activeJob
         });
     });
 

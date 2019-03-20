@@ -31,6 +31,7 @@ function createClient (params) {
         sAdd: promisify(client.sadd).bind(client),
         sRem: promisify(client.srem).bind(client),
         sMembers: promisify(client.smembers).bind(client),
+        sIsMember: promisify(client.sismember).bind(client),
         on: client.on.bind(client),
         publish: client.publish.bind(client),
         subscribe: client.subscribe.bind(client)
