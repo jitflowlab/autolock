@@ -20,9 +20,16 @@ exports.get = async function (id) {
         return false;
     }
     job = JSON.parse(job);
-    job.status = 'pending';
-    if (await redis.publisher.sIsMember('jobsCompleted', id)) {
+    let status = await redis.publisher.get('jobs:' + id + ':status');
+    let error = await redis.publisher.get('jobs:' + id + ':error');
+    job.error = null;
+    job.status = status || 'pending';
+    if (job.status === 'pending' && await redis.publisher.sIsMember('jobsCompleted', id)) {
         job.status = 'live';
+    }
+
+    if (error) {
+        job.error = JSON.parse(error);
     }
 
     return job;
@@ -113,6 +120,10 @@ exports.run = async function (id) {
         }));
     }
     await this.sendWebhook(id, lastError).catch(app.handleCatch);
+    if (lastError) {
+        await redis.publisher.set('jobs:' + id + ':status', 'failed');
+        await redis.publisher.set('jobs:' + id + ':error', JSON.stringify(lastError));
+    }
     app.log('Job completed: ' + id);
     return true;
 };
