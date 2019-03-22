@@ -2,6 +2,8 @@ const exec = require('child_process').exec;
 const fs = require('fs');
 const path = require('path');
 
+const serverType = (process.mainModule.filename.indexOf('server.js') !== -1 ? 'manager' : 'server');
+
 exports.timestamp = function () {
     return Math.floor(new Date() / 1000);
 };
@@ -25,7 +27,9 @@ exports.handleCatch = function (e) {
 
 exports.log = function (...message) {
     message = message.map(i => typeof i === 'object' ? JSON.stringify(i, null, 4) : i).join('\n') + '\n';
-    fs.appendFileSync(path.join('/var/log/nginx-letsencrypt.log'), message);
+    let log = '[' + serverType + ']: ';
+    log += message;
+    fs.appendFileSync(path.join('/var/log/nginx-letsencrypt.log'), log);
     process.stdout.write(message);
 };
 
